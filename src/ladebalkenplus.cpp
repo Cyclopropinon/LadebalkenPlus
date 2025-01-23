@@ -8,9 +8,11 @@
 
 #include <SFML/Graphics.hpp>
 
-constexpr float PI = 3.14159265359f;
-constexpr float RADIUS_SCALE = 100.0f; // Scaling factor for the polar radius.
-constexpr float TIME_INCREMENT = 0.01f;
+constexpr float PI = 3.141592653589793f;
+constexpr float RADIUS = 40.0f; // Scaling factor for the polar radius.
+constexpr float D_THETA = 0.01f;
+constexpr float MAX_LINIENLÄNGE = 1.0f;
+constexpr float LADEBALKEN_VOLL = 2 * PI;
 
 std::atomic<float> progress(0.0f);
 
@@ -33,18 +35,32 @@ void render(sf::RenderWindow &window, const std::vector<int> &l1_values, const s
     window.clear(sf::Color::Black);
 
     // Draw each l1 graph
-    float v15 = progress.load() * 2 * PI;
+    float v15 = progress.load() * LADEBALKEN_VOLL;
     for (int l1 : l1_values)
     {
         sf::VertexArray graph(sf::LineStrip);
+        float old_r = 0.0f;
 
-        for (float theta = 0.0f; theta < 2 * PI; theta += 0.01f)
+        for (float theta = 0.0f; theta < 2 * PI; theta += D_THETA)
         {
             float r = l1 * sign(std::cos(5 * theta - l1 * v15))
                     + std::sin(v15 + 5 * theta + l1)
                     - std::cos(v15);
-            sf::Vector2f cartesian = polarToCartesian(r * RADIUS_SCALE, theta);
-            graph.append(sf::Vertex(center + cartesian, sf::Color::Green));
+            sf::Vector2f cartesian = polarToCartesian(r * RADIUS, theta);
+
+            // If this is not the first vertex, check the distance
+            if (!graph.getVertexCount() || std::abs(r - old_r) < MAX_LINIENLÄNGE)
+                {
+                // Append the new vertex if the distance is within the limit
+                graph.append(sf::Vertex(center + cartesian, sf::Color::Green));
+            } else {
+                // If the distance is too large, start a new vertex array
+                window.draw(graph);  // Draw the old graph
+                graph.clear();  // Clear the old vertices
+                graph.append(sf::Vertex(center + cartesian, sf::Color::Green));  // Start a new vertex array
+            }
+
+            old_r = r;
         }
 
         window.draw(graph);

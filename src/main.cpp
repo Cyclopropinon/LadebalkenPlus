@@ -8,13 +8,17 @@ int main()
     // Create window
     auto window = LadebalkenErstellen(800, 800);
 
+    constexpr int max = 1729;
+    constexpr int fps = 60;
+    constexpr int nspf = 1'000'000'000/fps;
+
     // Simulation loop in a separate thread
     std::thread simulation([&]()
     {
-        for (int i = 1; i <= 1000; ++i)
+        for (int i = 1; i <= max; ++i)
         {
-            progress.store(static_cast<float>(i) / 1000.0f);
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            progress.store(static_cast<float>(i) / max);
+            std::this_thread::sleep_for(std::chrono::nanoseconds(nspf));
         }
     });
 
@@ -36,11 +40,11 @@ int main()
 
         // Update progress text
         float progressValue = progress.load();
-        int completed = static_cast<int>(progressValue * 1000);
+        int completed = static_cast<int>(progressValue * max);
         std::ostringstream oss;
         oss.imbue(std::locale("de_DE.UTF-8")); // Hier wird die deutsche Locale genutzt
-        oss.precision(1);
-        oss << std::fixed << progressValue * 100 << "% " << completed << "/1000";
+        oss.precision(2);
+        oss << std::fixed << progressValue * 100 << "% " << completed << "/" << max;
 
         // Render the scene
         render(*window, l1_values, oss.str());
