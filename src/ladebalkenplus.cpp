@@ -15,19 +15,30 @@ constexpr float MAX_LINIENLÄNGE = 1.0f;
 constexpr float LADEBALKEN_VOLL = 2 * PI;
 
 std::atomic<float> progress(0.0f);
+std::chrono::high_resolution_clock::time_point lastTime = std::chrono::high_resolution_clock::now();
+float deltaTimeMs = 0.0f;
+float currentFps = 0.0f;
 
-float sign(float value)
+inline float sign(float value)
 {
     return (value > 0) - (value < 0);
 }
 
-sf::Vector2f polarToCartesian(float r, float theta)
+inline sf::Vector2f polarToCartesian(float r, float theta)
 {
     return {r * std::cos(theta), r * std::sin(theta)};
 }
 
 void render(sf::RenderWindow &window, const std::vector<int> &l1_values, const std::string &progressText)
 {
+    // Calculate delta time and FPS
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<float, std::milli> deltaTime = currentTime - lastTime;
+    lastTime = currentTime;
+
+    deltaTimeMs = deltaTime.count();
+    currentFps = 1000.0f / deltaTimeMs;
+
     // Center of the window
     sf::Vector2f center(window.getSize().x / 2.0f, window.getSize().y / 2.0f);
 
@@ -79,6 +90,17 @@ void render(sf::RenderWindow &window, const std::vector<int> &l1_values, const s
     text.setPosition(10.0f, window.getSize().y - 30.0f);
     window.draw(text);
 
+    // Draw FPS and delta time
+    std::ostringstream stats;
+    stats.imbue(std::locale("de_DE.UTF-8")); // Hier wird die deutsche Locale genutzt
+    stats.precision(3);
+    stats << "Frame Time: " << std::fixed << deltaTimeMs << " ms\nFPS: " << currentFps;
+
+    sf::Text statsText(stats.str(), font, 20);
+    statsText.setFillColor(sf::Color::Yellow);
+    statsText.setPosition(10.0f, window.getSize().y - 78.0f);
+    window.draw(statsText);
+
     // Display the frame
     window.display();
 }
@@ -86,7 +108,7 @@ void render(sf::RenderWindow &window, const std::vector<int> &l1_values, const s
 std::unique_ptr<sf::RenderWindow> LadebalkenErstellen(unsigned int width, unsigned int height)
 {
     auto window = std::make_unique<sf::RenderWindow>(sf::VideoMode(width, height), "LadebalkenPlus", sf::Style::Close | sf::Style::Resize);
-    window->setFramerateLimit(60);
+    window->setFramerateLimit(60); // MaxFPS
     return window;
 }
 
