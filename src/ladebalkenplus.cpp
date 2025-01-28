@@ -1,7 +1,10 @@
+#include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <iomanip>
 #include <locale>
 #include <memory>
+#include <numeric>
 #include <sstream>
 #include <thread>
 #include <vector>
@@ -18,6 +21,9 @@ std::atomic<float> progress(0.0f);
 std::chrono::high_resolution_clock::time_point lastTime = std::chrono::high_resolution_clock::now();
 float deltaTimeMs = 0.0f;
 float currentFps = 0.0f;
+
+std::vector<float> frameTimes;
+constexpr size_t FRAME_TIME_BUFFER_SIZE = 1000;
 
 inline float sign(float value)
 {
@@ -38,6 +44,21 @@ void render(sf::RenderWindow &window, const std::vector<int> &l1_values, const s
 
     deltaTimeMs = deltaTime.count();
     currentFps = 1000.0f / deltaTimeMs;
+
+    // Add the frame time to the buffer
+    frameTimes.push_back(deltaTimeMs);
+    if (frameTimes.size() > FRAME_TIME_BUFFER_SIZE)
+    {
+        frameTimes.erase(frameTimes.begin());
+    }
+
+    // Calculate min, avg, max, and 95th percentile
+    float minTime = *std::min_element(frameTimes.begin(), frameTimes.end());
+    float maxTime = *std::max_element(frameTimes.begin(), frameTimes.end());
+    float avgTime = std::accumulate(frameTimes.begin(), frameTimes.end(), 0.0f) / frameTimes.size();
+    std::vector<float> sortedTimes = frameTimes;
+    std::sort(sortedTimes.begin(), sortedTimes.end());
+    float percentile95 = sortedTimes[static_cast<size_t>(0.95 * sortedTimes.size())];
 
     // Center of the window
     sf::Vector2f center(window.getSize().x / 2.0f, window.getSize().y / 2.0f);
@@ -90,25 +111,42 @@ void render(sf::RenderWindow &window, const std::vector<int> &l1_values, const s
     text.setPosition(10.0f, window.getSize().y - 30.0f);
     window.draw(text);
 
-    // Draw FPS and delta time
+    // Helper lambda to format FPS
+    auto calculateFPS = [](float timeMs) -> float {
+        return timeMs > 0 ? 1000.0f / timeMs : 0.0f;
+    };
+
+    // Set up the table output
     std::ostringstream stats;
-    stats.imbue(std::locale("de_DE.UTF-8")); // Hier wird die deutsche Locale genutzt
+    stats.imbue(std::locale("de_DE.UTF-8")); // Use German locale for number formatting
+    stats << "Letzte " << frameTimes.size() << " Bilder:\n";
     stats.precision(3);
-    stats << "Frame Time: " << std::fixed << deltaTimeMs << " ms\nFPS: " << currentFps;
+    stats << std::fixed; // 3 decimal places
+
+    stats << std::right << "Now:" << std::setw(10) << deltaTimeMs << " ms "
+          << std::setw(7) << calculateFPS(deltaTimeMs) << " FPS\n";
+    stats << std::right << "Min:" << std::setw(10) << minTime << " ms "
+          << std::setw(7) << calculateFPS(minTime) << " FPS\n";
+    stats << std::right << "Avg:" << std::setw(10) << avgTime << " ms "
+          << std::setw(7) << calculateFPS(avgTime) << " FPS\n";
+    stats << std::right << "95%:" << std::setw(10) << percentile95 << " ms "
+          << std::setw(7) << calculateFPS(percentile95) << " FPS\n";
+    stats << std::right << "Max:" << std::setw(10) << maxTime << " ms "
+          << std::setw(7) << calculateFPS(maxTime) << " FPS";
 
     sf::Text statsText(stats.str(), font, 20);
     statsText.setFillColor(sf::Color::Yellow);
-    statsText.setPosition(10.0f, window.getSize().y - 78.0f);
+    statsText.setPosition(10.0f, window.getSize().y - 174.0f); // 30 + 24 * AnzZeilen
     window.draw(statsText);
 
     // Display the frame
     window.display();
 }
 
-std::unique_ptr<sf::RenderWindow> LadebalkenErstellen(unsigned int width, unsigned int height)
+std::unique_ptr<sf::RenderWindow> LadebalkenErstellen(unsigned int width, unsigned int height, unsigned int MaxFPS = 60)
 {
     auto window = std::make_unique<sf::RenderWindow>(sf::VideoMode(width, height), "LadebalkenPlus", sf::Style::Close | sf::Style::Resize);
-    window->setFramerateLimit(60); // MaxFPS
+    window->setFramerateLimit(MaxFPS); // MaxFPS
     return window;
 }
 
