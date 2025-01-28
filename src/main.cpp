@@ -6,7 +6,7 @@ int main()
     std::vector<int> l1_values{2, 3, 4, 5, 6, 7, 8, 9, 10};
 
     // Create window
-    auto window = LadebalkenErstellen(800, 800);
+    auto window = LadebalkenErstellen(900, 900);
 
     constexpr int max = 1729;
     constexpr int fps = 60;
